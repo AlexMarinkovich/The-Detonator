@@ -1,0 +1,2 @@
+background1.png     opaque
+background2.png     opaque

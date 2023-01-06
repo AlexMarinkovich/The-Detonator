@@ -1,0 +1,3 @@
+crate.png		opaque
+bomb	    	opaque
+player.png		transparent

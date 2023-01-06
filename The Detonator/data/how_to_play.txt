@@ -1,0 +1,6 @@
+Use the A and D keys to move left and right.
+Use the space bar to jump.
+Hold left click on bombs to ignite them.
+Press Esc to open the pause menu.
+
+Get to the vortex to win!
