@@ -3,10 +3,12 @@ IDEAS:
 * two players controlled at once (easy to code in, just put two players in the map)
 * entity teleporter
 * tiles that can be destroyed by bombs
+* magnet entities
 
 TO DO:
 * make levels!
 * rework images
+* make vortex image lower resolution
 * fix entity above head movement
 """
 
@@ -22,7 +24,7 @@ pygame.init()
 scaled_window = pygame.display.set_mode((800,450), pygame.RESIZABLE)
 window = pygame.Surface((1920,1080))
 SF = 1
-pygame.display.set_caption("Minecraft")
+pygame.display.set_caption("The Detonator")
 clock = pygame.time.Clock()
 FPS = 60
 button_font = pygame.font.Font(f'data/font/{listdir("data/font")[0]}', 90)
@@ -105,12 +107,6 @@ class Object(pygame.sprite.Sprite, Animation):
     def update(self):
         Animation.update(self)
 
-    def unallign(self, allignment):
-        pass
-
-    def reallign(self, allignment):
-        pass
-
 class Vortex(Object):
     def __init__(self, pos, dimensions, images, **kwargs):
         super().__init__(pos, dimensions, images, **kwargs)
@@ -140,6 +136,7 @@ class Entity(Object):
 
         # check x direction collisions with tiles
         self.rect.x += round(self.dx)
+        self.borders()
         for tile in (hit_list := pygame.sprite.spritecollide(self, tile_map.tiles, False)):
             if self.dx > 0:
                 self.rect.right = tile.rect.left
@@ -208,6 +205,17 @@ class Entity(Object):
         # friction (gotta work to make this real friction later)
         if self.standing: self.dx = 0
 
+    def borders(self):
+        if self.rect.left < 0:
+            self.rect.left = 0
+            self.dx = 0
+        elif self.rect.right > tile_map.total_width:
+            self.rect.right = tile_map.total_width
+            self.dx = 0
+
+        if self.rect.y > tile_map.total_height + 2500:
+            self.kill()
+
     def update(self):
         self.gravity()
         if not self.premoved: self.movement()
@@ -246,8 +254,8 @@ class Bomb(Entity):
             angle = atan2(entity.rect.centery - self.rect.centery, entity.rect.centerx - self.rect.centerx)
             if dist > 4 or dist == 0: continue
 
-            blast_force_x = 0.5*tile_map.tile_size*cos(angle) / dist
-            blast_force_y = 0.5*tile_map.tile_size*sin(angle) / dist
+            blast_force_x = 0.51*tile_map.tile_size*cos(angle) / dist
+            blast_force_y = 0.51*tile_map.tile_size*sin(angle) / dist
             
             if (entity.dx < 0 and blast_force_x < 0) or (entity.dx > 0 and blast_force_x > 0): entity.dx += blast_force_x
             else: entity.dx = blast_force_x
@@ -297,7 +305,7 @@ class Player(Entity):
         
         if keys[pygame.K_a]: self.input_dx = -self.WALKING_SPEED
         elif keys[pygame.K_d]: self.input_dx = self.WALKING_SPEED
-
+        
         if abs(self.dx) <= self.WALKING_SPEED:
             self.dx = self.input_dx
 
@@ -416,12 +424,12 @@ class TileMap:
 
                 elif tile_name != "air":
                     if tile_name[:4] == "left":
-                        object = Object((x*self.tile_size + 0.05*self.tile_size, y * self.tile_size), (0.95*self.tile_size, self.tile_size), self.resized_images[tile_name])
+                        object = Object((x*self.tile_size + 0.1*self.tile_size, y * self.tile_size), (0.9*self.tile_size, self.tile_size), self.resized_images[tile_name])
                         self.tiles.add(object)
-                        self.image_allignments[object] = (-0.05*self.tile_size, 0)
+                        self.image_allignments[object] = (-0.1*self.tile_size, 0)
 
                     elif tile_name[:5] == "right":
-                        object = Object((x * self.tile_size, y * self.tile_size), (0.95*self.tile_size, self.tile_size), self.resized_images[tile_name])
+                        object = Object((x * self.tile_size, y * self.tile_size), (0.9*self.tile_size, self.tile_size), self.resized_images[tile_name])
                         self.tiles.add(object)
 
                     else:
@@ -517,7 +525,7 @@ class Mode:
             page_number = 0
 
             level_selection_text = Text((window.get_width()//2, 180), "Levels", title_font, "black")
-            level_selection_buttons = [Button((450 + 250*(i%5), 400 + 250*(i//5)),(150,150), level_name) for i,level_name in enumerate(level_list)]
+            level_selection_buttons = [Button((450 + 250*(i%5) + 1920*(i//10), 400 + 250*(i//5%2)),(150,150), level_name) for i,level_name in enumerate(level_list)]
             menu_button = Button((960,900), (800,150), "Menu")
 
         elif new_mode == "how_to_play":
@@ -536,8 +544,8 @@ def unscaled_pos(pos):
 while True:
     mouse_x, mouse_y = unscaled_pos(pygame.mouse.get_pos())
     mouse_clicked = False
-    keys = set() # keys pressed in this frame
-
+    keys = set() # stores keys pressed on the current frame
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -545,10 +553,10 @@ while True:
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_clicked = True
-            print(f"Mouse: {mouse_x, mouse_y}")
+            # print(f"Mouse: {mouse_x, mouse_y}")
         
         elif event.type == pygame.KEYDOWN:
-            keys.add(event.unicode)
+            keys.add(event.unicode.lower())
 
         elif event.type == pygame.WINDOWRESIZED:
             SF = min(scaled_window.get_width() / window.get_width(), scaled_window.get_height() / window.get_height())
@@ -607,6 +615,7 @@ while True:
             if menu_button.pressed(): mode.set_mode("menu")
             menu_button.draw(window)
         
+        if 'r' in keys: sounds["button_select"].play(); mode.set_mode("play", tile_map.level_name)
         if '\x1b' in keys: tile_map.paused = not tile_map.paused
 
     elif mode == "menu":
